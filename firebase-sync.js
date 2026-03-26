@@ -17,6 +17,37 @@ const DEVICE_ID = localStorage.getItem("taskflow_device_id") || (() => {
   return id;
 })();
 
+// Firebase can convert arrays to objects with numeric keys - fix them back
+function fixArrays(data) {
+  if (!data) return data;
+  // Fix projects array
+  if (data.projects && !Array.isArray(data.projects)) {
+    data.projects = Object.values(data.projects).filter(Boolean);
+  }
+  if (data.projects) {
+    for (const p of data.projects) {
+      // Fix tasks array
+      if (p.tasks && !Array.isArray(p.tasks)) {
+        p.tasks = Object.values(p.tasks).filter(Boolean);
+      }
+      if (!p.tasks) p.tasks = [];
+      for (const t of p.tasks) {
+        // Fix subtasks array
+        if (t.subtasks && !Array.isArray(t.subtasks)) {
+          t.subtasks = Object.values(t.subtasks).filter(Boolean);
+        }
+        if (!t.subtasks) t.subtasks = [];
+      }
+    }
+  }
+  // Fix inbox array
+  if (data.inbox && !Array.isArray(data.inbox)) {
+    data.inbox = Object.values(data.inbox).filter(Boolean);
+  }
+  if (!data.inbox) data.inbox = [];
+  return data;
+}
+
 let _db = null;
 let _syncEnabled = false;
 let _firebaseSaveTimer = null;
@@ -45,13 +76,17 @@ function initFirebaseSync() {
       const remoteTime = remote._syncUpdatedAt || 0;
       if (remoteTime <= localTime) return;
 
-      // Apply remote data
-      state = remote;
+      // Apply remote data - ensure arrays are proper
+      state = fixArrays(remote);
       if (!state.inbox) state.inbox = [];
       delete state._deviceId;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      render();
-      renderInbox();
+      try {
+        render();
+        renderInbox();
+      } catch (e) {
+        console.error("Render after sync error:", e);
+      }
       showSyncNotice("別のデバイスから同期しました");
       console.log("Synced from remote device");
     });
