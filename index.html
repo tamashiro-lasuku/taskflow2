@@ -99,15 +99,14 @@
           <span id="noDateAlertText"></span>
         </div>
         <div class="global-top-actions">
-          <button class="btn-secondary btn-sm" id="exportBtn" title="データをエクスポート">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            エクスポート
+          <button class="btn-secondary btn-sm" id="syncNowBtn" title="最新データを反映">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            反映
           </button>
-          <label class="btn-secondary btn-sm import-label" title="データをインポート">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            インポート
-            <input type="file" id="importFile" accept=".json" hidden>
-          </label>
+          <button class="btn-secondary btn-sm" id="backupBtn" title="バックアップを保存">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            バックアップ
+          </button>
           <button class="btn-calendar" id="syncCalendarBtn" hidden>カレンダーに同期</button>
           <div class="sync-status" id="syncStatus"></div>
         </div>

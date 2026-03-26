@@ -2098,43 +2098,32 @@ function init() {
     }
   });
 
-  // Export
-  document.getElementById("exportBtn").addEventListener("click", () => {
+  // Sync Now (force pull from Firebase)
+  document.getElementById("syncNowBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("syncNowBtn");
+    btn.disabled = true;
+    btn.textContent = "反映中...";
+    try {
+      if (typeof forceSync === "function") {
+        await forceSync();
+      }
+    } catch (e) {
+      console.warn("Sync error:", e);
+    }
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> 反映`;
+  });
+
+  // Backup (download JSON)
+  document.getElementById("backupBtn").addEventListener("click", () => {
     const json = JSON.stringify(state, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `taskflow_${todayStr()}.json`;
+    a.download = `taskflow_backup_${todayStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  });
-
-  // Import
-  document.getElementById("importFile").addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const imported = JSON.parse(ev.target.result);
-        if (!imported.projects) {
-          alert("無効なデータです");
-          return;
-        }
-        if (!confirm("現在のデータを上書きしますか？")) return;
-        state = imported;
-        if (!state.inbox) state.inbox = [];
-        saveData();
-        render();
-        renderInbox();
-        alert("インポート完了");
-      } catch {
-        alert("ファイルの読み込みに失敗しました");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
   });
 
   // Keyboard

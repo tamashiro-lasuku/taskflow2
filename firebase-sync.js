@@ -121,6 +121,30 @@ function saveToFirebase() {
   }, 1500);
 }
 
+// Force pull latest from Firebase
+async function forceSync() {
+  if (!_syncEnabled || !_db) {
+    showSyncNotice("同期未接続");
+    return;
+  }
+  const snapshot = await _db.ref("taskflow/data").once("value");
+  const remote = snapshot.val();
+  if (!remote || !remote.projects) {
+    // No remote data - push local
+    saveToFirebase();
+    showSyncNotice("ローカルデータをアップロードしました");
+    return;
+  }
+  state = fixArrays(remote);
+  if (!state.inbox) state.inbox = [];
+  if (typeof ensureSubtasks === "function") ensureSubtasks(state);
+  delete state._deviceId;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  render();
+  renderInbox();
+  showSyncNotice("最新データを反映しました");
+}
+
 function showSyncNotice(msg) {
   const el = document.getElementById("syncStatusBar");
   if (el) {
