@@ -99,6 +99,17 @@ function saveData() {
 
 let state = loadData();
 if (!state.inbox) state.inbox = [];
+ensureSubtasks(state);
+
+function ensureSubtasks(s) {
+  if (!s.projects) return;
+  for (const p of s.projects) {
+    if (!p.tasks) p.tasks = [];
+    for (const t of p.tasks) {
+      if (!t.subtasks) t.subtasks = [];
+    }
+  }
+}
 
 // Migrate old priority format to urgency/importance
 (function migrateData() {
@@ -425,6 +436,7 @@ function renderKanban() {
 }
 
 function renderKanbanCard(t) {
+  if (!t.subtasks) t.subtasks = [];
   const dueClass = isOverdue(t.dueDate) && t.status !== "完了" ? "overdue" : "";
   const subtaskDone = t.subtasks.filter((s) => s.status === "完了").length;
   const subtaskTotal = t.subtasks.length;

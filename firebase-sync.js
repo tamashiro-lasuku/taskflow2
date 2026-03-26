@@ -79,6 +79,7 @@ function initFirebaseSync() {
       // Apply remote data - ensure arrays are proper
       state = fixArrays(remote);
       if (!state.inbox) state.inbox = [];
+      if (typeof ensureSubtasks === "function") ensureSubtasks(state);
       delete state._deviceId;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       try {
