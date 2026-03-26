@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <rect width="128" height="128" rx="28" fill="#1a1a1a"/>
+  <g transform="translate(20, 24)">
+    <!-- Kanban columns -->
+    <rect x="0" y="0" width="24" height="80" rx="6" fill="#f5e642" opacity="0.9"/>
+    <rect x="32" y="16" width="24" height="64" rx="6" fill="#8ecae6" opacity="0.9"/>
+    <rect x="64" y="8" width="24" height="72" rx="6" fill="#7ec87e" opacity="0.9"/>
+    <!-- Check mark -->
+    <path d="M72 44 L76 50 L82 38" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
