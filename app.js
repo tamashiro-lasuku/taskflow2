@@ -62,7 +62,7 @@ const defaultData = () => ({
       ],
     },
   ],
-  selectedProjectId: null,
+  selectedProjectIds: [],
   currentView: "kanban",
 });
 
@@ -99,6 +99,11 @@ function saveData() {
 
 let state = loadData();
 if (!state.inbox) state.inbox = [];
+if (state.selectedProjectId !== undefined) {
+  state.selectedProjectIds = state.selectedProjectId ? [state.selectedProjectId] : [];
+  delete state.selectedProjectId;
+}
+if (!state.selectedProjectIds) state.selectedProjectIds = [];
 ensureSubtasks(state);
 
 function ensureSubtasks(s) {
@@ -142,8 +147,8 @@ function getAllTasks() {
 
 function getFilteredTasks() {
   let tasks = getAllTasks();
-  if (state.selectedProjectId) {
-    tasks = tasks.filter((t) => t.projectId === state.selectedProjectId);
+  if (state.selectedProjectIds.length > 0) {
+    tasks = tasks.filter((t) => state.selectedProjectIds.includes(t.projectId));
   }
   const pf = document.getElementById("filterPriority").value;
   if (pf !== "all") {
@@ -350,15 +355,16 @@ function renderGlobalAlerts() {
 
 function renderSidebar() {
   const list = document.getElementById("projectList");
-  // "すべて" item
-  let html = `<li class="project-item ${!state.selectedProjectId ? "active" : ""}" data-project-id="">
+  const allSelected = state.selectedProjectIds.length === 0;
+  let html = `<li class="project-item ${allSelected ? "active" : ""}" data-project-id="">
     <span class="project-dot" style="background: var(--text-tertiary)"></span>
     <span class="project-item-name">すべて</span>
     <span class="project-count">${getAllTasks().length}</span>
   </li>`;
 
   for (const p of state.projects) {
-    html += `<li class="project-item ${state.selectedProjectId === p.id ? "active" : ""}" data-project-id="${p.id}" data-editable>
+    const selected = state.selectedProjectIds.includes(p.id);
+    html += `<li class="project-item ${selected ? "active" : ""}" data-project-id="${p.id}" data-editable>
       <span class="project-dot" style="background: ${p.color}"></span>
       <span class="project-item-name">${esc(p.name)}</span>
       <span class="project-count">${p.tasks.length}</span>
@@ -369,7 +375,19 @@ function renderSidebar() {
   // Click handlers
   list.querySelectorAll(".project-item").forEach((el) => {
     el.addEventListener("click", (e) => {
-      state.selectedProjectId = el.dataset.projectId || null;
+      const pid = el.dataset.projectId;
+      if (!pid) {
+        state.selectedProjectIds = [];
+      } else if (e.ctrlKey || e.metaKey) {
+        const idx = state.selectedProjectIds.indexOf(pid);
+        if (idx !== -1) {
+          state.selectedProjectIds.splice(idx, 1);
+        } else {
+          state.selectedProjectIds.push(pid);
+        }
+      } else {
+        state.selectedProjectIds = [pid];
+      }
       saveData();
       render();
     });
@@ -495,8 +513,8 @@ function renderKanbanCard(t) {
 
 function renderList() {
   const content = document.getElementById("listContent");
-  const projects = state.selectedProjectId
-    ? state.projects.filter((p) => p.id === state.selectedProjectId)
+  const projects = state.selectedProjectIds.length > 0
+    ? state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
     : state.projects;
 
   if (projects.length === 0) {
@@ -663,8 +681,8 @@ function renderDashboard() {
     <div class="dash-card-title">プロジェクト進捗</div>
     <div class="project-progress-list">`;
 
-  const projects = state.selectedProjectId
-    ? state.projects.filter((p) => p.id === state.selectedProjectId)
+  const projects = state.selectedProjectIds.length > 0
+    ? state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
     : state.projects;
 
   for (const p of projects) {
@@ -1098,8 +1116,8 @@ function openTaskModal(taskId, parentId) {
     document.getElementById("taskRecurrence").value = "none";
     document.getElementById("recurrenceDetail").hidden = true;
     document.getElementById("recurrenceEndRow").hidden = true;
-    if (state.selectedProjectId) {
-      projSelect.value = state.selectedProjectId;
+    if (state.selectedProjectIds.length === 1) {
+      projSelect.value = state.selectedProjectIds[0];
     }
   }
 
@@ -1254,8 +1272,8 @@ function renderGantt() {
   }
 
   // Group tasks by project
-  const projects = state.selectedProjectId
-    ? state.projects.filter((p) => p.id === state.selectedProjectId)
+  const projects = state.selectedProjectIds.length > 0
+    ? state.projects.filter((p) => state.selectedProjectIds.includes(p.id))
     : state.projects;
 
   // Build rows
@@ -2031,7 +2049,7 @@ function init() {
     if (!ok) return;
 
     state.projects = state.projects.filter((p) => p.id !== id);
-    if (state.selectedProjectId === id) state.selectedProjectId = null;
+    state.selectedProjectIds = state.selectedProjectIds.filter(pid => pid !== id);
     saveData();
     closeModal(document.getElementById("projectModal"));
     render();
