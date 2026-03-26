@@ -159,6 +159,18 @@ function getFilteredTasks() {
       return score < 8;
     });
   }
+  // Sort: manual sortOrder first (if set), then due date → priority score
+  tasks.sort((a, b) => {
+    const aHas = a.sortOrder !== undefined;
+    const bHas = b.sortOrder !== undefined;
+    if (aHas && bHas) return a.sortOrder - b.sortOrder;
+    if (aHas) return -1;
+    if (bHas) return 1;
+    const aDate = a.dueDate || "9999-99-99";
+    const bDate = b.dueDate || "9999-99-99";
+    if (aDate !== bDate) return aDate < bDate ? -1 : 1;
+    return getPriorityScore(b) - getPriorityScore(a);
+  });
   return tasks;
 }
 
@@ -894,6 +906,15 @@ function setupDragAndDrop() {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       col.classList.add("drag-over");
+      const afterCard = getDragAfterElement(col, e.clientY);
+      const dragging = document.querySelector(".kanban-card.dragging");
+      if (dragging) {
+        if (afterCard) {
+          col.insertBefore(dragging, afterCard);
+        } else {
+          col.appendChild(dragging);
+        }
+      }
     });
 
     col.addEventListener("dragleave", () => {
@@ -906,6 +927,14 @@ function setupDragAndDrop() {
       const taskId = e.dataTransfer.getData("text/plain");
       const newStatus = col.dataset.status;
       updateTaskStatus(taskId, newStatus);
+      const cardIds = [...col.querySelectorAll(".kanban-card")].map(c => c.dataset.taskId);
+      cardIds.forEach((id, i) => {
+        const found = findTask(id);
+        if (found && !found.parent) {
+          found.task.sortOrder = i;
+        }
+      });
+      saveData();
     });
   });
 
@@ -933,6 +962,18 @@ function setupDragAndDrop() {
     saveData();
     render();
   });
+}
+
+function getDragAfterElement(container, y) {
+  const cards = [...container.querySelectorAll(".kanban-card:not(.dragging)")];
+  return cards.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset, element: child };
+    }
+    return closest;
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
 function updateDeleteBtn() {

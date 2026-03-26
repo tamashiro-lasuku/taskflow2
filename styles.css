@@ -886,14 +886,19 @@ html, body {
 }
 
 .card-due {
-  font-size: 11px;
-  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
   margin-left: auto;
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .card-due.overdue {
-  color: var(--accent-red);
-  font-weight: 700;
+  color: var(--text-inverse);
+  background: var(--accent-red);
+  font-weight: 900;
 }
 
 .card-progress-bar {
