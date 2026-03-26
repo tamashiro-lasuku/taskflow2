@@ -94,9 +94,8 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (typeof saveToFirebase === "function") saveToFirebase();
 }
-
-
 
 let state = loadData();
 if (!state.inbox) state.inbox = [];
@@ -2178,4 +2177,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   init();
   initInbox();
   initHamburger();
+  if (typeof initFirebaseSync === "function") initFirebaseSync();
 });
