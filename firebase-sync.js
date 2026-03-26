@@ -53,6 +53,11 @@ function initFirebaseSync() {
     _db = firebase.database();
     _syncEnabled = true;
 
+    // Pull latest on init
+    forceSync().then(() => {
+      console.log("Initial sync completed");
+    });
+
     // Hourly auto-sync
     setInterval(() => {
       forceSync().then(() => {
