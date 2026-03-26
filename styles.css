@@ -910,10 +910,38 @@ html, body {
   transition: width 300ms ease-out;
 }
 
-.card-subtasks {
+.card-subtasks-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--border-light);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.card-subtasks-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.card-subtasks-chevron {
+  transition: transform 200ms ease-out;
+}
+
+.card-subtasks-chevron-open {
+  transform: rotate(90deg);
+}
+
+.card-subtasks {
+  margin-top: 4px;
+}
+
+.card-subtasks-collapsed {
+  display: none;
 }
 
 .card-subtask {

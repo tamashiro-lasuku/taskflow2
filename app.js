@@ -432,7 +432,22 @@ function renderKanban() {
 
   board.innerHTML = html;
   setupDragAndDrop();
+  setupSubtaskToggles();
   renderKanbanInbox();
+}
+
+function setupSubtaskToggles() {
+  document.querySelectorAll(".card-subtasks-toggle").forEach(toggle => {
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const taskId = toggle.dataset.taskId;
+      const list = document.querySelector(`.card-subtasks[data-subtasks-for="${taskId}"]`);
+      if (!list) return;
+      const isOpen = !list.classList.contains("card-subtasks-collapsed");
+      list.classList.toggle("card-subtasks-collapsed", isOpen);
+      toggle.querySelector(".card-subtasks-chevron").classList.toggle("card-subtasks-chevron-open", !isOpen);
+    });
+  });
 }
 
 function renderKanbanCard(t) {
@@ -459,7 +474,11 @@ function renderKanbanCard(t) {
   }
 
   if (subtaskTotal > 0) {
-    cardHtml += `<div class="card-subtasks">`;
+    cardHtml += `<div class="card-subtasks-toggle" data-task-id="${t.id}">
+      <svg class="card-subtasks-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 6 15 12 9 18"/></svg>
+      <span>${subtaskDone}/${subtaskTotal}</span>
+    </div>
+    <div class="card-subtasks card-subtasks-collapsed" data-subtasks-for="${t.id}">`;
     for (const st of t.subtasks) {
       const done = st.status === "完了";
       cardHtml += `<div class="card-subtask">
