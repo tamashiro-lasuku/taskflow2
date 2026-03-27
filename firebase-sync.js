@@ -96,9 +96,11 @@ function initFirebaseSync() {
       }
     });
 
-    // Monitor connection state (don't overwrite debug info)
+    // Monitor connection state
     firebase.database().ref(".info/connected").on("value", (snap) => {
-      if (snap.val() !== true) {
+      if (snap.val() === true) {
+        if (_initialSyncDone) setSyncIndicator("ok", "同期OK");
+      } else {
         setSyncIndicator("error", "Firebase未接続");
       }
     });
@@ -183,8 +185,7 @@ async function forceSync() {
     `rTime:${remoteTime} lMod:${localModified} pulled:${_lastPulledAt}`
   );
 
-  // ALWAYS pull from remote on forceSync - this is what the user expects
-  // when pressing the sync button or on page load
+  // ALWAYS pull from remote on forceSync
   _lastPulledAt = remoteTime;
   state = fixArrays(remote);
   if (!state.inbox) state.inbox = [];
@@ -192,6 +193,17 @@ async function forceSync() {
   delete state._deviceId;
   state._localModifiedAt = undefined; // Mark as not locally modified yet
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+  // Force page reload to guarantee UI shows the pulled data
+  // This avoids any render() scope or timing issues
+  const isFirstSync = !_initialSyncDone;
+  if (isFirstSync) {
+    // Save a flag so we don't loop forever
+    sessionStorage.setItem("taskflow_just_synced", "1");
+    location.reload();
+    return;
+  }
+
   try {
     render();
     renderInbox();
