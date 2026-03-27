@@ -50,6 +50,7 @@ let _lastPulledAt = 0;   // Timestamp of the last data we received FROM remote
 let _lastPushedAt = 0;   // Timestamp of the last data we pushed TO remote
 
 function initFirebaseSync() {
+  setSyncIndicator("connecting", "接続中...");
   try {
     firebase.initializeApp(firebaseConfig);
     _db = firebase.database();
@@ -58,6 +59,10 @@ function initFirebaseSync() {
     // Pull latest on init
     forceSync().then(() => {
       console.log("Initial sync completed");
+      setSyncIndicator("ok", "同期OK");
+    }).catch((e) => {
+      console.error("Initial sync failed:", e);
+      setSyncIndicator("error", "同期エラー: " + e.message);
     });
 
     // Listen for real-time changes from other devices
@@ -82,7 +87,17 @@ function initFirebaseSync() {
           console.error("Render after realtime sync error:", e);
         }
         showSyncNotice("別のデバイスから自動反映しました", "auto");
+        setSyncIndicator("ok", "同期OK");
         console.log("Realtime sync applied from remote");
+      }
+    });
+
+    // Monitor connection state
+    firebase.database().ref(".info/connected").on("value", (snap) => {
+      if (snap.val() === true) {
+        setSyncIndicator("ok", "同期OK");
+      } else {
+        setSyncIndicator("error", "Firebase未接続");
       }
     });
 
@@ -90,8 +105,31 @@ function initFirebaseSync() {
     console.log("Firebase sync initialized, device:", DEVICE_ID);
   } catch (e) {
     console.warn("Firebase init failed:", e.message);
+    setSyncIndicator("error", "Firebase初期化失敗: " + e.message);
     _syncEnabled = false;
   }
+}
+
+// Persistent sync status indicator (always visible)
+function setSyncIndicator(status, text) {
+  let el = document.getElementById("syncIndicator");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "syncIndicator";
+    el.style.cssText = "position:fixed;bottom:8px;right:8px;z-index:9999;font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;pointer-events:none;opacity:0.85;";
+    document.body.appendChild(el);
+  }
+  if (status === "ok") {
+    el.style.background = "#dcfce7";
+    el.style.color = "#16a34a";
+  } else if (status === "error") {
+    el.style.background = "#fee2e2";
+    el.style.color = "#dc2626";
+  } else {
+    el.style.background = "#fef3c7";
+    el.style.color = "#d97706";
+  }
+  el.textContent = text;
 }
 
 // Upload local data to Firebase

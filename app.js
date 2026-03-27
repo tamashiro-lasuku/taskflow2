@@ -2704,5 +2704,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   initHamburger();
   await initSyncStorage();
   listenForSyncChanges();
-  if (typeof initFirebaseSync === "function") initFirebaseSync();
+  if (typeof initFirebaseSync === "function") {
+    initFirebaseSync();
+  } else {
+    // Firebase SDK failed to load
+    if (typeof setSyncIndicator === "function") {
+      setSyncIndicator("error", "Firebase SDK読込失敗");
+    }
+  }
 });
