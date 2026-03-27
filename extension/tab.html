@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>タスク管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100;300;400;500;700;900&family=Bricolage+Grotesque:wght@800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Hamburger Toggle -->
+    <button id="hamburgerBtn" class="hamburger-btn" aria-label="メニュー切替">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1 class="logo">Task<span class="logo-accent">Flow</span></h1>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-view="kanban">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+          カンバン
+        </button>
+        <button class="nav-btn" data-view="list">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>
+          リスト
+        </button>
+        <button class="nav-btn" data-view="gantt">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="12" height="3" rx="1"/><rect x="7" y="10" width="14" height="3" rx="1"/><rect x="5" y="16" width="8" height="3" rx="1"/><line x1="3" y1="2" x2="3" y2="22"/></svg>
+          ガント
+        </button>
+        <button class="nav-btn" data-view="calendar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="14" width="3" height="3" rx="0.5"/></svg>
+          カレンダー
+        </button>
+        <button class="nav-btn" data-view="projectBoard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></svg>
+          プロジェクト
+        </button>
+        <button class="nav-btn" data-view="dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="4" rx="1"/><rect x="13" y="9" width="8" height="2" rx="1"/><rect x="3" y="13" width="8" height="4" rx="1"/><rect x="3" y="19" width="8" height="2" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
+          ダッシュボード
+        </button>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">プロジェクト</span>
+          <button class="btn-icon" id="addProjectBtn" title="プロジェクト追加">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <ul id="projectList" class="project-list"></ul>
+      </div>
+
+      <div class="sidebar-section sidebar-inbox">
+        <div class="section-header">
+          <span class="section-title">インボックス</span>
+          <span class="inbox-count" id="inboxCount">0</span>
+        </div>
+        <div class="inbox-input-row">
+          <textarea id="inboxInput" class="inbox-input" rows="2" placeholder="メモを追加 (1行1件)"></textarea>
+          <button class="inbox-send-btn" id="inboxSendBtn" title="追加">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <ul id="inboxList" class="inbox-list"></ul>
+      </div>
+
+      <div class="sidebar-section sidebar-filters">
+        <div class="section-title">フィルタ</div>
+        <div class="filter-group">
+          <label>優先スコア</label>
+          <select id="filterPriority">
+            <option value="all">すべて</option>
+            <option value="high">高 (15-25)</option>
+            <option value="mid">中 (8-14)</option>
+            <option value="low">低 (1-7)</option>
+          </select>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- Main Content -->
+    <main id="mainContent">
+      <!-- Global Top Bar -->
+      <div id="globalTopBar" class="global-top-bar">
+        <div class="global-alert" id="noDateAlert" hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="noDateAlertText"></span>
+        </div>
+        <div class="global-top-actions">
+          <button class="btn-secondary btn-sm" id="syncNowBtn" title="最新データを反映">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            反映
+          </button>
+          <button class="btn-secondary btn-sm" id="backupBtn" title="バックアップを保存">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            バックアップ
+          </button>
+          <button class="btn-calendar" id="syncCalendarBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            カレンダー同期
+          </button>
+          <button class="btn-secondary btn-sm" id="resetSyncBtn" title="同期履歴をリセット">
+            リセット
+          </button>
+          <button class="btn-secondary btn-sm" id="syncHistoryBtn" title="反映履歴">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            履歴
+          </button>
+          <div class="sync-status" id="syncStatus"></div>
+        </div>
+        <span class="sync-device-status" id="syncStatusBar" hidden></span>
+        <!-- Sync History Panel -->
+        <div id="syncHistoryPanel" class="sync-history-panel" hidden>
+          <div class="sync-history-header">
+            <span class="sync-history-title">反映履歴</span>
+            <button class="sync-history-close" id="syncHistoryClose">&times;</button>
+          </div>
+          <ul class="sync-history-list" id="syncHistoryList"></ul>
+        </div>
+      </div>
+
+      <!-- Kanban View -->
+      <div id="kanbanView" class="view active">
+        <div class="view-header">
+          <div class="status-summary" id="statusSummary"></div>
+          <button class="btn-danger" id="deleteSelectedBtn" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            <span id="deleteSelectedCount">0</span>件削除
+          </button>
+        </div>
+        <div class="kanban-board" id="kanbanBoard"></div>
+        <div class="kanban-trash" id="kanbanTrash">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          ここにドロップで削除
+        </div>
+      </div>
+
+      <!-- List View -->
+      <div id="listView" class="view">
+        <div class="view-header">
+          <h2 class="view-title">リスト</h2>
+          <button class="btn-danger" id="deleteSelectedList" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            <span id="deleteSelectedListCount">0</span>件削除
+          </button>
+        </div>
+        <div id="listContent" class="list-content"></div>
+      </div>
+
+      <!-- Gantt View -->
+      <div id="ganttView" class="view">
+        <div class="view-header">
+          <h2 class="view-title">ガントチャート</h2>
+          <button class="btn-danger" id="deleteSelectedGantt" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+            <span id="deleteSelectedGanttCount">0</span>件削除
+          </button>
+        </div>
+        <div id="ganttContent" class="gantt-content"></div>
+      </div>
+
+      <!-- Calendar View -->
+      <div id="calendarView" class="view">
+        <div class="view-header">
+          <h2 class="view-title">カレンダー</h2>
+          <div class="calendar-nav">
+            <button class="btn-icon" id="calendarPrev" title="前月">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="calendar-month-label" id="calendarMonthLabel"></span>
+            <button class="btn-icon" id="calendarNext" title="次月">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 6 15 12 9 18"/></svg>
+            </button>
+            <button class="btn-secondary btn-sm" id="calendarToday">今日</button>
+          </div>
+        </div>
+        <div id="calendarContent" class="calendar-content"></div>
+      </div>
+
+      <!-- Project Board View -->
+      <div id="projectBoardView" class="view">
+        <div class="view-header">
+          <h2 class="view-title">プロジェクトボード</h2>
+        </div>
+        <div id="projectBoardContent" class="project-board-content"></div>
+      </div>
+
+      <!-- Dashboard View -->
+      <div id="dashboardView" class="view">
+        <div class="view-header">
+          <h2 class="view-title">ダッシュボード</h2>
+          <div class="dash-meta" id="dashboardMeta"></div>
+        </div>
+        <div id="dashboardContent" class="dashboard-content"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- FAB: Add Task -->
+  <button class="fab-add-task" id="fabAddTask" title="タスク追加">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <!-- Task Modal -->
+  <div id="taskModal" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h3 id="modalTitle">タスク追加</h3>
+        <button class="btn-icon modal-close" id="modalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="taskForm">
+        <input type="hidden" id="taskId">
+        <input type="hidden" id="taskParentId">
+        <input type="hidden" id="taskProjectId">
+        <input type="hidden" id="taskType" value="task">
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label for="taskName">タスク名 <span class="required">*</span></label>
+            <input type="text" id="taskName" required placeholder="タスク名を入力">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label for="taskProject">プロジェクト</label>
+            <select id="taskProject"></select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="taskUrgency">緊急度</label>
+            <select id="taskUrgency">
+              <option value="1">1 - 低</option>
+              <option value="2">2</option>
+              <option value="3" selected>3 - 中</option>
+              <option value="4">4</option>
+              <option value="5">5 - 高</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="taskImportance">重要度</label>
+            <select id="taskImportance">
+              <option value="1">1 - 低</option>
+              <option value="2">2</option>
+              <option value="3" selected>3 - 中</option>
+              <option value="4">4</option>
+              <option value="5">5 - 高</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>優先スコア <span id="priorityScore" class="priority-score">9</span>/25</label>
+            <div class="priority-matrix-mini" id="priorityMatrixMini"></div>
+          </div>
+          <div class="form-group">
+            <label for="taskStatus">ステータス</label>
+            <select id="taskStatus">
+              <option value="未着手">未着手</option>
+              <option value="進行中">進行中</option>
+              <option value="対応待ち">対応待ち</option>
+              <option value="完了">完了</option>
+              <option value="保留">保留</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="taskStart">開始日</label>
+            <input type="date" id="taskStart">
+          </div>
+          <div class="form-group">
+            <label for="taskDue">期限</label>
+            <input type="date" id="taskDue">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label for="taskEstimate">工数(見積h)</label>
+            <input type="number" id="taskEstimate" min="0" step="0.5" placeholder="0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label for="taskRecurrence">繰り返し</label>
+            <div class="recurrence-row">
+              <select id="taskRecurrence">
+                <option value="none">なし</option>
+                <option value="daily">毎日</option>
+                <option value="weekly">毎週</option>
+                <option value="monthly">毎月</option>
+                <option value="yearly">毎年</option>
+              </select>
+              <div class="recurrence-detail" id="recurrenceDetail" hidden>
+                <label class="recurrence-interval-label">
+                  <input type="number" id="recurrenceInterval" min="1" max="99" value="1" class="recurrence-interval-input">
+                  <span id="recurrenceIntervalUnit">日</span>ごと
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row" id="recurrenceEndRow" hidden>
+          <div class="form-group">
+            <label for="recurrenceEndType">終了条件</label>
+            <select id="recurrenceEndType">
+              <option value="count">回数指定</option>
+              <option value="date">日付指定</option>
+              <option value="never">なし（無期限）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div id="recurrenceEndCount">
+              <label for="recurrenceCount">回数</label>
+              <input type="number" id="recurrenceCount" min="2" max="365" value="5">
+            </div>
+            <div id="recurrenceEndDate" hidden>
+              <label for="recurrenceUntil">終了日</label>
+              <input type="date" id="recurrenceUntil">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label>進捗率: <span id="progressValue">0</span>%</label>
+            <div class="progress-buttons" id="progressButtons">
+              <button type="button" class="progress-btn active" data-value="0">0%</button>
+              <button type="button" class="progress-btn" data-value="20">20%</button>
+              <button type="button" class="progress-btn" data-value="50">50%</button>
+              <button type="button" class="progress-btn" data-value="80">80%</button>
+              <button type="button" class="progress-btn" data-value="100">100%</button>
+            </div>
+            <input type="range" id="taskProgress" min="0" max="100" step="5" value="0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group form-full">
+            <label for="taskMemo">メモ</label>
+            <textarea id="taskMemo" rows="3" placeholder="メモを入力"></textarea>
+          </div>
+        </div>
+
+        <div class="form-row" id="inboxAddRow">
+          <div class="form-group form-full">
+            <label for="inboxAddInput">インボックスに追加 <span class="inbox-hint">(1行1件)</span></label>
+            <textarea id="inboxAddInput" class="inbox-input" rows="3" placeholder="ここに箇条書きでメモ..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="deleteTaskBtn" hidden>削除</button>
+          <button type="button" class="btn-calendar-sm" id="syncTaskBtn" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            カレンダー
+          </button>
+          <div class="modal-actions-right">
+            <button type="button" class="btn-secondary" id="addSubtaskBtn" hidden>サブタスク追加</button>
+            <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Project Modal -->
+  <div id="projectModal" class="modal-overlay">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+      <div class="modal-header">
+        <h3 id="projectModalTitle">プロジェクト追加</h3>
+        <button class="btn-icon modal-close" id="projectModalClose">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="projectForm">
+        <input type="hidden" id="projectId">
+        <div class="form-group">
+          <label for="projectName">プロジェクト名 <span class="required">*</span></label>
+          <input type="text" id="projectName" required placeholder="プロジェクト名">
+        </div>
+        <div class="form-group">
+          <label for="projectColor">カラー</label>
+          <div class="color-picker" id="colorPicker">
+            <button type="button" class="color-swatch active" data-color="#f5e642" style="background:#f5e642"></button>
+            <button type="button" class="color-swatch" data-color="#7ec87e" style="background:#7ec87e"></button>
+            <button type="button" class="color-swatch" data-color="#8ecae6" style="background:#8ecae6"></button>
+            <button type="button" class="color-swatch" data-color="#e05050" style="background:#e05050"></button>
+            <button type="button" class="color-swatch" data-color="#c084fc" style="background:#c084fc"></button>
+            <button type="button" class="color-swatch" data-color="#fb923c" style="background:#fb923c"></button>
+            <button type="button" class="color-swatch" data-color="#67e8f9" style="background:#67e8f9"></button>
+            <button type="button" class="color-swatch" data-color="#a3a3a3" style="background:#a3a3a3"></button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="projectDesc">説明</label>
+          <textarea id="projectDesc" rows="2" placeholder="プロジェクトの説明"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-danger" id="deleteProjectBtn" hidden>削除</button>
+          <button type="submit" class="btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div id="confirmDialog" class="modal-overlay">
+    <div class="modal modal-xs">
+      <p id="confirmMessage"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="confirmCancel">キャンセル</button>
+        <button class="btn-danger" id="confirmOk">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="firebase-app-compat.js"></script>
+  <script src="firebase-database-compat.js"></script>
+  <script src="calendar.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
