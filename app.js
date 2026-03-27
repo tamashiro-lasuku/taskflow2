@@ -321,8 +321,12 @@ function ensureSubtasks(s) {
       }
     }
   }
-  if (changed) saveData();
+  // Save locally only (don't trigger Firebase push before initial sync)
+  if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 })();
+
+// === UI State (survives re-render) ===
+const _expandedSubtasks = new Set(); // Track which cards have subtasks expanded
 
 // === Helpers ===
 function getAllTasks() {
@@ -673,6 +677,28 @@ function renderKanban() {
 
   const tasks = getFilteredTasks();
 
+  // Project header when a single project is selected
+  const projectHeader = document.getElementById("kanbanProjectHeader");
+  if (projectHeader) {
+    if (state.selectedProjectIds.length === 1) {
+      const p = findProject(state.selectedProjectIds[0]);
+      if (p) {
+        const doneCount = p.tasks.filter(t => t.status === "完了").length;
+        const pct = p.tasks.length > 0 ? Math.round((doneCount / p.tasks.length) * 100) : 0;
+        projectHeader.innerHTML = `
+          <span class="kanban-project-dot" style="background:${p.color}"></span>
+          <span class="kanban-project-name">${esc(p.name)}</span>
+          <span class="kanban-project-desc">${p.description ? esc(p.description) : ""}</span>
+          <span class="kanban-project-pct">${pct}% 完了 (${doneCount}/${p.tasks.length})</span>`;
+        projectHeader.hidden = false;
+      } else {
+        projectHeader.hidden = true;
+      }
+    } else {
+      projectHeader.hidden = true;
+    }
+  }
+
   // Status summary
   const summary = document.getElementById("statusSummary");
   if (summary) {
@@ -717,6 +743,17 @@ function renderKanban() {
 }
 
 function setupSubtaskToggles() {
+  // Restore expanded state after re-render
+  _expandedSubtasks.forEach(taskId => {
+    const list = document.querySelector(`.card-subtasks[data-subtasks-for="${taskId}"]`);
+    const toggle = document.querySelector(`.card-subtasks-toggle[data-task-id="${taskId}"]`);
+    if (list) list.classList.remove("card-subtasks-collapsed");
+    if (toggle) {
+      const chevron = toggle.querySelector(".card-subtasks-chevron");
+      if (chevron) chevron.classList.add("card-subtasks-chevron-open");
+    }
+  });
+
   document.querySelectorAll(".card-subtasks-toggle").forEach(toggle => {
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -726,6 +763,9 @@ function setupSubtaskToggles() {
       const isOpen = !list.classList.contains("card-subtasks-collapsed");
       list.classList.toggle("card-subtasks-collapsed", isOpen);
       toggle.querySelector(".card-subtasks-chevron").classList.toggle("card-subtasks-chevron-open", !isOpen);
+      // Remember state
+      if (isOpen) _expandedSubtasks.delete(taskId);
+      else _expandedSubtasks.add(taskId);
     });
   });
 }
@@ -1147,6 +1187,12 @@ function setupDragAndDrop() {
       if (e.target.closest(".card-subtask-check")) {
         const stId = e.target.closest(".card-subtask-check").dataset.subtaskId;
         toggleSubtask(stId);
+        return;
+      }
+      if (e.target.closest(".card-subtask-name")) {
+        const subtaskEl = e.target.closest(".card-subtask");
+        const stId = subtaskEl.querySelector(".card-subtask-check").dataset.subtaskId;
+        openTaskModal(stId, card.dataset.taskId);
         return;
       }
       openTaskModal(card.dataset.taskId);
