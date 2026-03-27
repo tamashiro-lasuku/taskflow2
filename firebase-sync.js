@@ -72,8 +72,9 @@ function initFirebaseSync() {
       const remoteTime = remote._syncUpdatedAt || 0;
       // Ignore our own writes (matched by device ID + timestamp we just pushed)
       if (remote._deviceId === DEVICE_ID && remoteTime <= _lastPushedAt) return;
-      // Only apply if remote is newer than what we last pulled
-      if (remoteTime > _lastPulledAt) {
+      // Apply if remote is newer, OR if local has never been modified (fresh state)
+      const isLocalFresh = !(state._localModifiedAt);
+      if (isLocalFresh || remoteTime > _lastPulledAt) {
         _lastPulledAt = remoteTime;
         state = fixArrays(remote);
         if (!state.inbox) state.inbox = [];
@@ -171,9 +172,14 @@ async function forceSync() {
   const remoteTime = remote._syncUpdatedAt || 0;
   const localModified = state._localModifiedAt || 0;
 
-  // If remote was written by a different device and is newer than our last pull,
-  // OR remote is newer than our local modifications → apply remote
-  if (remoteTime > _lastPulledAt && (remote._deviceId !== DEVICE_ID || remoteTime > localModified)) {
+  // If local has never been modified (fresh install / cleared data),
+  // always pull from remote
+  const isLocalFresh = !localModified;
+
+  // Pull remote if:
+  // - Local is fresh (no _localModifiedAt = never edited on this device)
+  // - OR remote has changes we haven't seen yet from a different device
+  if (isLocalFresh || (remoteTime > _lastPulledAt && (remote._deviceId !== DEVICE_ID || remoteTime > localModified))) {
     _lastPulledAt = remoteTime;
     state = fixArrays(remote);
     if (!state.inbox) state.inbox = [];
