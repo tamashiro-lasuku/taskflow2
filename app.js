@@ -2702,22 +2702,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   init();
   initInbox();
   initHamburger();
-
-  // If we just reloaded after first sync, skip Firebase init (data is already in localStorage)
-  const justSynced = sessionStorage.getItem("taskflow_just_synced");
-  if (justSynced) {
-    sessionStorage.removeItem("taskflow_just_synced");
-    // Data was already saved to localStorage before reload, just render
-    return;
-  }
-
   await initSyncStorage();
   listenForSyncChanges();
   if (typeof initFirebaseSync === "function") {
     initFirebaseSync();
-  } else {
-    if (typeof setSyncIndicator === "function") {
-      setSyncIndicator("error", "Firebase SDK読込失敗");
-    }
+  } else if (typeof setSyncIndicator === "function") {
+    setSyncIndicator("error", "Firebase SDK読込失敗");
   }
 });
