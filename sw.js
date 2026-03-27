@@ -1,4 +1,4 @@
-const CACHE_NAME = "taskflow-v3.7";
+const CACHE_NAME = "taskflow-v3.8";
 const ASSETS = [
   "./index.html",
   "./app.js",

@@ -198,6 +198,8 @@ async function forceSync() {
   } catch (e) {
     console.error("Render after sync error:", e);
   }
+  const projectNames = (state.projects || []).map(p => p.name).join(", ");
+  setSyncIndicator("ok", "反映済: " + projectNames);
   showSyncNotice(`反映完了 (${remoteProjectCount}件のプロジェクト)`, "pull");
 }
 
