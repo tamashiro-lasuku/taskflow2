@@ -72,6 +72,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Positioned as drawer — see hamburger section for fixed/transform rules */
 }
 
 .sidebar-header {
@@ -645,6 +646,175 @@ html, body {
   animation: fadeIn 300ms ease-out;
 }
 
+/* === Project Board View === */
+.project-board-content {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+}
+
+.pb-project {
+  margin-bottom: 24px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.pb-project-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.pb-project-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.pb-project-name {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.pb-project-pct {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
+.pb-project-bar {
+  flex: 1;
+  max-width: 160px;
+  height: 6px;
+  background: var(--bg-active);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pb-project-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 300ms ease;
+}
+
+.pb-status-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--border-light);
+}
+
+.pb-status-col {
+  background: var(--bg-primary);
+  padding: 10px;
+  min-height: 80px;
+}
+
+.pb-status-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pb-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pb-status-count {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.pb-card {
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.pb-card:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.pb-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.pb-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pb-card-priority {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.pb-priority-high { background: #fee2e2; color: #dc2626; }
+.pb-priority-mid { background: #fef3c7; color: #d97706; }
+.pb-priority-low { background: #dbeafe; color: #3b82f6; }
+
+.pb-card-due {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.pb-card-due.overdue {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.pb-empty {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 12px;
+}
+
+@media (max-width: 768px) {
+  .pb-status-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pb-status-col:last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .pb-status-row {
+    grid-template-columns: 1fr;
+  }
+  .pb-status-col:last-child {
+    grid-column: span 1;
+  }
+}
+
 /* === Kanban Project Header === */
 .kanban-project-header {
   display: flex;
@@ -1190,17 +1360,7 @@ html, body {
   padding-left: 8px;
 }
 
-.list-task-row {
-  display: grid;
-  grid-template-columns: 24px 32px 1fr 80px 80px 96px 56px;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 200ms ease-out;
-  border-bottom: 1px solid var(--border-light);
-}
+/* .list-task-row grid is defined in the responsive section below */
 
 .list-task-row:hover {
   background: var(--bg-hover);
@@ -2637,9 +2797,9 @@ html, body {
   background: var(--text-tertiary);
 }
 
-/* === Hamburger Menu (Responsive) === */
+/* === Hamburger Menu (Always available) === */
 .hamburger-btn {
-  display: none;
+  display: flex;
   position: fixed;
   top: 16px;
   left: 16px;
@@ -2669,49 +2829,98 @@ html, body {
   z-index: 999;
 }
 
+/* Sidebar: always collapsible drawer */
+#sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 300ms ease-out;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+}
+
+#sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-overlay.open {
+  display: block;
+}
+
+#mainContent {
+  width: 100%;
+}
+
+.global-top-bar {
+  padding: 10px 16px 10px 60px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.view-header {
+  padding: 16px 16px 12px 64px;
+}
+
+/* === List view: always responsive grid === */
+.list-task-row {
+  display: grid;
+  grid-template-columns: 24px 28px 1fr auto auto auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 200ms ease-out;
+  border-bottom: 1px solid var(--border-light);
+}
+
+@media (max-width: 960px) {
+  .list-task-row {
+    grid-template-columns: 24px 28px 1fr auto;
+  }
+  .list-task-priority,
+  .list-task-progress-cell {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .list-task-row {
+    grid-template-columns: 24px 28px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .list-task-name {
+    grid-column: 3;
+    white-space: normal;
+  }
+  .list-task-status {
+    grid-column: 3;
+    justify-self: start;
+  }
+  .list-task-priority,
+  .list-task-due,
+  .list-task-progress-cell {
+    display: none;
+  }
+  .list-subtask-row {
+    grid-template-columns: 24px 28px 1fr;
+  }
+  .list-subtask-row .list-task-status,
+  .list-subtask-row .list-task-due {
+    display: none;
+  }
+  .list-subtask-row > div:first-child {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
-  .hamburger-btn {
-    display: flex;
-  }
-
-  #sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 300ms ease-out;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.12);
-  }
-
-  #sidebar.open {
-    transform: translateX(0);
-  }
-
-  .sidebar-overlay.open {
-    display: block;
-  }
-
-  #mainContent {
-    width: 100%;
-  }
-
-  .global-top-bar {
-    padding: 10px 16px 10px 60px;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
   .fab-add-task {
     bottom: 16px;
     left: 16px;
     width: 48px;
     height: 48px;
-  }
-
-  .view-header {
-    padding: 16px 16px 12px 64px;
   }
 
   .status-summary {
@@ -2730,7 +2939,8 @@ html, body {
   .list-content,
   .gantt-content,
   .calendar-content,
-  .dashboard-content {
+  .dashboard-content,
+  .project-board-content {
     padding: 0 16px 16px;
   }
 
@@ -2741,36 +2951,5 @@ html, body {
   .modal {
     width: calc(100vw - 32px);
     max-width: 560px;
-  }
-
-  /* List view: stack vertically on mobile */
-  .list-task-row {
-    grid-template-columns: 24px 28px 1fr;
-    grid-template-rows: auto auto;
-    gap: 4px 8px;
-  }
-  .list-task-name {
-    grid-column: 3;
-    white-space: normal;
-  }
-  .list-task-status {
-    grid-column: 3;
-    justify-self: start;
-  }
-  .list-task-priority,
-  .list-task-due,
-  .list-task-progress-cell {
-    display: none;
-  }
-
-  .list-subtask-row {
-    grid-template-columns: 24px 28px 1fr;
-  }
-  .list-subtask-row .list-task-status,
-  .list-subtask-row .list-task-due {
-    display: none;
-  }
-  .list-subtask-row > div:first-child {
-    display: none;
   }
 }

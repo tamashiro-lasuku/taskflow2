@@ -599,6 +599,7 @@ function render() {
   renderGantt();
   renderCalendar();
   renderDashboard();
+  renderProjectBoard();
   renderGlobalAlerts();
 }
 
@@ -895,6 +896,78 @@ function filterProjectTasks(project) {
   // Filter recurring tasks to show only the nearest upcoming instance
   tasks = filterRecurringToNearest(tasks);
   return tasks;
+}
+
+// === Project Board View (projects as rows, statuses as columns) ===
+function renderProjectBoard() {
+  const content = document.getElementById("projectBoardContent");
+  if (!content) return;
+
+  const statuses = [
+    { status: "未着手", color: "var(--status-todo)" },
+    { status: "進行中", color: "var(--status-progress)" },
+    { status: "対応待ち", color: "var(--status-review)" },
+    { status: "完了", color: "var(--status-done)" },
+    { status: "保留", color: "var(--status-hold)" },
+  ];
+
+  const projects = state.selectedProjectIds.length > 0
+    ? state.projects.filter(p => state.selectedProjectIds.includes(p.id))
+    : state.projects;
+
+  if (projects.length === 0) {
+    content.innerHTML = `<div class="empty-state"><p>プロジェクトを追加してください</p></div>`;
+    return;
+  }
+
+  let html = "";
+  for (const p of projects) {
+    const tasks = filterProjectTasks(p);
+    const doneCount = tasks.filter(t => t.status === "完了").length;
+    const pct = tasks.length > 0 ? Math.round((doneCount / tasks.length) * 100) : 0;
+
+    html += `<div class="pb-project">
+      <div class="pb-project-header">
+        <span class="pb-project-dot" style="background:${p.color}"></span>
+        <span class="pb-project-name">${esc(p.name)}</span>
+        <span class="pb-project-pct">${pct}%</span>
+        <div class="pb-project-bar"><div class="pb-project-bar-fill" style="width:${pct}%;background:${p.color}"></div></div>
+      </div>
+      <div class="pb-status-row">`;
+
+    for (const col of statuses) {
+      const colTasks = tasks.filter(t => t.status === col.status);
+      html += `<div class="pb-status-col">
+        <div class="pb-status-label">
+          <span class="pb-status-dot" style="background:${col.color}"></span>
+          ${col.status} <span class="pb-status-count">${colTasks.length}</span>
+        </div>`;
+      for (const t of colTasks) {
+        const score = getPriorityScore(t);
+        const priorityLabel = score >= 15 ? "high" : score >= 8 ? "mid" : "low";
+        html += `<div class="pb-card" data-task-id="${t.id}">
+          <div class="pb-card-name">${esc(t.name)}</div>
+          <div class="pb-card-meta">
+            <span class="pb-card-priority pb-priority-${priorityLabel}">${score}</span>
+            ${t.dueDate ? `<span class="pb-card-due ${isOverdue(t.dueDate) && t.status !== "完了" ? "overdue" : ""}">${formatDate(t.dueDate)}</span>` : ""}
+          </div>
+        </div>`;
+      }
+      if (colTasks.length === 0) {
+        html += `<div class="pb-empty">—</div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  content.innerHTML = html;
+
+  // Click to open task modal
+  content.querySelectorAll(".pb-card[data-task-id]").forEach(card => {
+    card.addEventListener("click", () => openTaskModal(card.dataset.taskId));
+  });
 }
 
 function renderDashboard() {
