@@ -13,19 +13,17 @@ echo "=== TaskFlow Extension Build ==="
 rm -rf "$DIST"
 mkdir -p "$DIST/icons"
 
-# 共有ファイルをコピー
+# 共有ファイルをコピー (firebase-sync.jsは拡張版を使う)
 cp "$SCRIPT_DIR/app.js"           "$DIST/"
-cp "$SCRIPT_DIR/firebase-sync.js" "$DIST/"
 cp "$SCRIPT_DIR/styles.css"       "$DIST/"
 cp "$SCRIPT_DIR/icons/"*          "$DIST/icons/"
 
 # 拡張専用ファイルをコピー
-cp "$SCRIPT_DIR/extension/tab.html"                    "$DIST/"
-cp "$SCRIPT_DIR/extension/manifest.json"               "$DIST/"
-cp "$SCRIPT_DIR/extension/background.js"               "$DIST/"
-cp "$SCRIPT_DIR/extension/calendar.js"                 "$DIST/"
-cp "$SCRIPT_DIR/extension/firebase-app-compat.js"      "$DIST/"
-cp "$SCRIPT_DIR/extension/firebase-database-compat.js" "$DIST/"
+cp "$SCRIPT_DIR/extension/tab.html"         "$DIST/"
+cp "$SCRIPT_DIR/extension/manifest.json"    "$DIST/"
+cp "$SCRIPT_DIR/extension/background.js"    "$DIST/"
+cp "$SCRIPT_DIR/extension/calendar.js"      "$DIST/"
+cp "$SCRIPT_DIR/extension/firebase-sync.js" "$DIST/"
 
 echo "Done! Load '$DIST' as unpacked extension in Chrome."
 echo "Files:"

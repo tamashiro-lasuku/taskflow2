@@ -83,7 +83,7 @@ function futureStr(days) {
 // === Storage: localStorage + chrome.storage.sync ===
 const SYNC_CHUNK_PREFIX = "tf_chunk_";
 const SYNC_META_KEY = "tf_meta";
-const CHUNK_SIZE = 7500; // Stay under 8KB per key (QUOTA_BYTES_PER_ITEM)
+const CHUNK_SIZE = 4000; // Stay well under 8KB per key (QUOTA_BYTES_PER_ITEM)
 
 function loadData() {
   try {
