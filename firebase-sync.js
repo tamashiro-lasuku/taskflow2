@@ -176,35 +176,31 @@ async function forceSync() {
 
   const remoteTime = remote._syncUpdatedAt || 0;
   const localModified = state._localModifiedAt || 0;
+  const remoteProjectCount = Array.isArray(remote.projects) ? remote.projects.length : Object.keys(remote.projects || {}).length;
+  const localProjectCount = (state.projects || []).length;
 
-  // If local has never been modified (fresh install / cleared data),
-  // always pull from remote
-  const isLocalFresh = !localModified;
+  // DEBUG: show sync decision on screen
+  setSyncIndicator("connecting",
+    `remote:${remoteProjectCount}件 local:${localProjectCount}件 ` +
+    `rTime:${remoteTime} lMod:${localModified} pulled:${_lastPulledAt}`
+  );
 
-  // Pull remote if:
-  // - Local is fresh (no _localModifiedAt = never edited on this device)
-  // - OR remote has changes we haven't seen yet from a different device
-  if (isLocalFresh || (remoteTime > _lastPulledAt && (remote._deviceId !== DEVICE_ID || remoteTime > localModified))) {
-    _lastPulledAt = remoteTime;
-    state = fixArrays(remote);
-    if (!state.inbox) state.inbox = [];
-    if (typeof ensureSubtasks === "function") ensureSubtasks(state);
-    delete state._deviceId;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    try {
-      render();
-      renderInbox();
-    } catch (e) {
-      console.error("Render after sync error:", e);
-    }
-    showSyncNotice("最新データを反映しました", "pull");
-  } else if (localModified > _lastPushedAt) {
-    // We have local changes that haven't been pushed yet
-    saveToFirebase();
-    showSyncNotice("データをアップロードしました", "push");
-  } else {
-    showSyncNotice("すでに最新です", "info");
+  // ALWAYS pull from remote on forceSync - this is what the user expects
+  // when pressing the sync button or on page load
+  _lastPulledAt = remoteTime;
+  state = fixArrays(remote);
+  if (!state.inbox) state.inbox = [];
+  if (typeof ensureSubtasks === "function") ensureSubtasks(state);
+  delete state._deviceId;
+  state._localModifiedAt = undefined; // Mark as not locally modified yet
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    render();
+    renderInbox();
+  } catch (e) {
+    console.error("Render after sync error:", e);
   }
+  showSyncNotice(`反映完了 (${remoteProjectCount}件のプロジェクト)`, "pull");
 }
 
 function showSyncNotice(msg, type) {
