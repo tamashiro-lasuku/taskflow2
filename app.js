@@ -81,6 +81,9 @@ function futureStr(days) {
 }
 
 // === Storage: localStorage + chrome.storage.sync ===
+const SYNC_CHUNK_PREFIX = "tf_chunk_";
+const SYNC_META_KEY = "tf_meta";
+const CHUNK_SIZE = 7500; // Stay under 8KB per key (QUOTA_BYTES_PER_ITEM)
 
 function loadData() {
   try {
@@ -92,19 +95,206 @@ function loadData() {
   return defaultData();
 }
 
+let _saveTimer = null;
 function saveData() {
+  state._localModifiedAt = Date.now();
+  state._syncUpdatedAt = state._localModifiedAt;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  syncToBackground();
   if (typeof saveToFirebase === "function") saveToFirebase();
+  // Debounce sync to avoid hitting chrome.storage.sync rate limits
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => saveToSync(), 2000);
+}
+
+function syncToBackground() {
+  if (typeof chrome === "undefined" || !chrome.storage) return;
+  try {
+    const allTasks = [];
+    for (const p of state.projects) {
+      for (const t of p.tasks) {
+        allTasks.push(t);
+      }
+    }
+    const noDateCount = allTasks.filter(t => !t.startDate && !t.dueDate && t.status !== "完了").length;
+    const inboxItems = (state.inbox || []).map(item => item.text);
+    chrome.storage.local.set({
+      inboxCount: inboxItems.length,
+      inboxItems,
+      noDateCount,
+      totalTasks: allTasks.length,
+    });
+  } catch (e) {
+    // Ignore in environments without chrome.storage
+  }
+}
+
+// Split data into chunks and save to chrome.storage.sync
+async function saveToSync() {
+  if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.sync) return;
+  try {
+    const json = JSON.stringify(state);
+    const chunks = [];
+    for (let i = 0; i < json.length; i += CHUNK_SIZE) {
+      chunks.push(json.slice(i, i + CHUNK_SIZE));
+    }
+
+    // Max ~13 chunks (~100KB total). If data too large, skip sync
+    if (chunks.length > 13) {
+      console.warn("Data too large for sync storage, skipping sync");
+      updateSyncStatus("データが大きすぎて同期できません");
+      return;
+    }
+
+    // Clear old chunks first
+    const oldMeta = await chromeStorageSyncGet(SYNC_META_KEY);
+    const oldCount = oldMeta[SYNC_META_KEY]?.chunkCount || 0;
+    const keysToRemove = [];
+    for (let i = 0; i < Math.max(oldCount, chunks.length + 5); i++) {
+      keysToRemove.push(SYNC_CHUNK_PREFIX + i);
+    }
+    await chromeStorageSyncRemove(keysToRemove);
+
+    // Save new chunks
+    const data = { [SYNC_META_KEY]: { chunkCount: chunks.length, updatedAt: Date.now() } };
+    chunks.forEach((chunk, i) => {
+      data[SYNC_CHUNK_PREFIX + i] = chunk;
+    });
+    await chromeStorageSyncSet(data);
+    console.log(`Synced ${chunks.length} chunks (${json.length} bytes)`);
+  } catch (e) {
+    console.warn("Sync save error:", e.message);
+  }
+}
+
+// Load data from chrome.storage.sync
+async function loadFromSync() {
+  if (typeof chrome === "undefined" || !chrome.storage || !chrome.storage.sync) return null;
+  try {
+    const meta = await chromeStorageSyncGet(SYNC_META_KEY);
+    if (!meta[SYNC_META_KEY]) return null;
+
+    const { chunkCount, updatedAt } = meta[SYNC_META_KEY];
+    const keys = [];
+    for (let i = 0; i < chunkCount; i++) {
+      keys.push(SYNC_CHUNK_PREFIX + i);
+    }
+    const chunks = await chromeStorageSyncGet(keys);
+    let json = "";
+    for (let i = 0; i < chunkCount; i++) {
+      const chunk = chunks[SYNC_CHUNK_PREFIX + i];
+      if (!chunk) return null; // Missing chunk
+      json += chunk;
+    }
+    const data = JSON.parse(json);
+    data._syncUpdatedAt = updatedAt;
+    return data;
+  } catch (e) {
+    console.warn("Sync load error:", e.message);
+    return null;
+  }
+}
+
+// Promisified chrome.storage.sync helpers
+function chromeStorageSyncGet(keys) {
+  return new Promise((resolve) => chrome.storage.sync.get(keys, resolve));
+}
+function chromeStorageSyncSet(data) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.sync.set(data, () => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve();
+    });
+  });
+}
+function chromeStorageSyncRemove(keys) {
+  return new Promise((resolve) => chrome.storage.sync.remove(keys, resolve));
+}
+
+function updateSyncStatus(msg) {
+  const el = document.getElementById("syncStatusBar");
+  if (el) {
+    el.textContent = msg;
+    el.hidden = false;
+    setTimeout(() => { el.hidden = true; }, 5000);
+  }
+  if (typeof addSyncHistory === "function") addSyncHistory(msg, "info");
+}
+
+// On page load: compare local vs sync, use the newer one
+async function initSyncStorage() {
+  const syncData = await loadFromSync();
+  if (!syncData) {
+    // No sync data yet, push local to sync
+    saveToSync();
+    return;
+  }
+
+  // Compare timestamps: use _localModifiedAt to avoid the bug where
+  // _syncUpdatedAt is always updated by saveData()
+  const localRaw = localStorage.getItem(STORAGE_KEY);
+  let localModifiedAt = 0;
+  if (localRaw) {
+    try {
+      const local = JSON.parse(localRaw);
+      localModifiedAt = local._localModifiedAt || local._syncUpdatedAt || 0;
+    } catch {}
+  }
+
+  if (syncData._syncUpdatedAt > localModifiedAt) {
+    // Sync is newer → apply to local
+    state = syncData;
+    if (!state.inbox) state.inbox = [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    syncToBackground();
+    render();
+    renderInbox();
+    console.log("Loaded newer data from sync");
+  } else {
+    // Local is newer or same → push to sync
+    saveToSync();
+  }
+}
+
+// Listen for sync changes from other devices
+function listenForSyncChanges() {
+  if (typeof chrome === "undefined" || !chrome.storage) return;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+    if (!changes[SYNC_META_KEY]) return;
+
+    const newMeta = changes[SYNC_META_KEY].newValue;
+    if (!newMeta) return;
+
+    // Another device updated → reload from sync
+    // Use _localModifiedAt to compare properly
+    const localModifiedAt = state._localModifiedAt || 0;
+    if (newMeta.updatedAt > localModifiedAt) {
+      loadFromSync().then(syncData => {
+        if (syncData) {
+          state = syncData;
+          if (!state.inbox) state.inbox = [];
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          syncToBackground();
+          render();
+          renderInbox();
+          updateSyncStatus("別のデバイスからデータを同期しました");
+        }
+      });
+    }
+  });
 }
 
 let state = loadData();
 if (!state.inbox) state.inbox = [];
+// Migrate old single selection to multi-select
 if (state.selectedProjectId !== undefined) {
   state.selectedProjectIds = state.selectedProjectId ? [state.selectedProjectId] : [];
   delete state.selectedProjectId;
 }
 if (!state.selectedProjectIds) state.selectedProjectIds = [];
 ensureSubtasks(state);
+syncToBackground();
 
 function ensureSubtasks(s) {
   if (!s.projects) return;
@@ -145,6 +335,10 @@ function getAllTasks() {
   return tasks;
 }
 
+function isProjectSelected(projectId) {
+  return state.selectedProjectIds.length === 0 || state.selectedProjectIds.includes(projectId);
+}
+
 function getFilteredTasks() {
   let tasks = getAllTasks();
   if (state.selectedProjectIds.length > 0) {
@@ -159,6 +353,10 @@ function getFilteredTasks() {
       return score < 8;
     });
   }
+
+  // Filter recurring tasks: show only the nearest upcoming instance per group
+  tasks = filterRecurringToNearest(tasks);
+
   // Sort: manual sortOrder first (if set), then due date → priority score
   tasks.sort((a, b) => {
     const aHas = a.sortOrder !== undefined;
@@ -172,6 +370,54 @@ function getFilteredTasks() {
     return getPriorityScore(b) - getPriorityScore(a);
   });
   return tasks;
+}
+
+// For recurring task groups, keep only:
+// - The base task (recurrenceIndex === 1 or has recurrence.type !== "none")
+// - The nearest upcoming incomplete instance (closest future dueDate)
+// - Any instance that is overdue and not yet completed
+function filterRecurringToNearest(tasks) {
+  const today = todayStr();
+  // Group recurring instances by recurrenceGroupId
+  const groups = {};
+  const nonRecurring = [];
+
+  for (const t of tasks) {
+    if (t.recurrenceGroupId) {
+      if (!groups[t.recurrenceGroupId]) groups[t.recurrenceGroupId] = [];
+      groups[t.recurrenceGroupId].push(t);
+    } else {
+      nonRecurring.push(t);
+    }
+  }
+
+  const result = [...nonRecurring];
+
+  for (const groupId of Object.keys(groups)) {
+    const members = groups[groupId];
+
+    // Find the base task (the one with recurrence.type !== "none")
+    const baseTask = members.find(t => t.recurrence && t.recurrence.type !== "none");
+
+    // Separate completed and incomplete instances (excluding base)
+    const instances = members.filter(t => t !== baseTask);
+    const overdueIncomplete = instances.filter(t => t.status !== "完了" && t.dueDate && t.dueDate < today);
+    const futureIncomplete = instances.filter(t => t.status !== "完了" && t.dueDate && t.dueDate >= today);
+
+    // Always include the base task
+    if (baseTask) result.push(baseTask);
+
+    // Include overdue incomplete instances (they need attention)
+    result.push(...overdueIncomplete);
+
+    // Include only the nearest future incomplete instance
+    if (futureIncomplete.length > 0) {
+      futureIncomplete.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      result.push(futureIncomplete[0]);
+    }
+  }
+
+  return result;
 }
 
 function findTask(taskId) {
@@ -368,6 +614,7 @@ function renderGlobalAlerts() {
 function renderSidebar() {
   const list = document.getElementById("projectList");
   const allSelected = state.selectedProjectIds.length === 0;
+  // "すべて" item
   let html = `<li class="project-item ${allSelected ? "active" : ""}" data-project-id="">
     <span class="project-dot" style="background: var(--text-tertiary)"></span>
     <span class="project-item-name">すべて</span>
@@ -389,8 +636,10 @@ function renderSidebar() {
     el.addEventListener("click", (e) => {
       const pid = el.dataset.projectId;
       if (!pid) {
+        // "すべて" clicked → clear selection
         state.selectedProjectIds = [];
       } else if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd+click → toggle
         const idx = state.selectedProjectIds.indexOf(pid);
         if (idx !== -1) {
           state.selectedProjectIds.splice(idx, 1);
@@ -398,6 +647,7 @@ function renderSidebar() {
           state.selectedProjectIds.push(pid);
         }
       } else {
+        // Normal click → select only this one
         state.selectedProjectIds = [pid];
       }
       saveData();
@@ -602,6 +852,8 @@ function filterProjectTasks(project) {
       return score < 8;
     });
   }
+  // Filter recurring tasks to show only the nearest upcoming instance
+  tasks = filterRecurringToNearest(tasks);
   return tasks;
 }
 
@@ -906,6 +1158,7 @@ function setupDragAndDrop() {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       col.classList.add("drag-over");
+      // Show drop indicator between cards
       const afterCard = getDragAfterElement(col, e.clientY);
       const dragging = document.querySelector(".kanban-card.dragging");
       if (dragging) {
@@ -927,6 +1180,7 @@ function setupDragAndDrop() {
       const taskId = e.dataTransfer.getData("text/plain");
       const newStatus = col.dataset.status;
       updateTaskStatus(taskId, newStatus);
+      // Save manual sort order from current DOM positions
       const cardIds = [...col.querySelectorAll(".kanban-card")].map(c => c.dataset.taskId);
       cardIds.forEach((id, i) => {
         const found = findTask(id);
@@ -2157,24 +2411,48 @@ function init() {
     btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>カレンダーに同期`;
   });
 
-  // Calendar sync - single task from modal
-  document.getElementById("syncTaskBtn").addEventListener("click", async () => {
-    const taskId = document.getElementById("taskId").value;
-    if (!taskId) return;
-    const found = findTask(taskId);
-    if (!found || found.parent) return;
+  // Calendar sync reset (optional - may not exist in PWA version)
+  const resetSyncBtn = document.getElementById("resetSyncBtn");
+  if (resetSyncBtn) {
+    resetSyncBtn.addEventListener("click", async () => {
+      const ok = await showConfirm("カレンダー上のイベントも削除してリセットしますか？");
+      if (!ok) return;
+      resetSyncBtn.disabled = true;
+      resetSyncBtn.textContent = "削除中...";
+      const status = document.getElementById("syncStatus");
+      try {
+        const deleted = await deleteAllSyncedEvents();
+        status.textContent = `${deleted}件のイベントを削除しました`;
+        status.className = "sync-status success";
+      } catch (e) {
+        status.textContent = `エラー: ${e.message}`;
+        status.className = "sync-status error";
+      }
+      resetSyncBtn.disabled = false;
+      resetSyncBtn.textContent = "リセット";
+    });
+  }
 
-    const btn = document.getElementById("syncTaskBtn");
-    btn.textContent = "同期中...";
+  // Calendar sync - single task from modal (optional)
+  const syncTaskBtn = document.getElementById("syncTaskBtn");
+  if (syncTaskBtn) {
+    syncTaskBtn.addEventListener("click", async () => {
+      const taskId = document.getElementById("taskId").value;
+      if (!taskId) return;
+      const found = findTask(taskId);
+      if (!found || found.parent) return;
 
-    const res = await syncTaskToCalendar(found.task, found.project.name, found.project.color);
-    if (res.success) {
-      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 同期済み`;
-      btn.classList.add("synced");
-    } else {
-      btn.textContent = `エラー: ${res.reason}`;
-    }
-  });
+      syncTaskBtn.textContent = "同期中...";
+
+      const res = await syncTaskToCalendar(found.task, found.project.name, found.project.color);
+      if (res.success) {
+        syncTaskBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> 同期済み`;
+        syncTaskBtn.classList.add("synced");
+      } else {
+        syncTaskBtn.textContent = `エラー: ${res.reason}`;
+      }
+    });
+  }
 
   // Sync Now (force pull from Firebase)
   document.getElementById("syncNowBtn").addEventListener("click", async () => {
@@ -2190,6 +2468,25 @@ function init() {
     }
     btn.disabled = false;
     btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> 反映`;
+  });
+
+  // Sync History toggle
+  document.getElementById("syncHistoryBtn").addEventListener("click", () => {
+    const panel = document.getElementById("syncHistoryPanel");
+    const isOpen = !panel.hidden;
+    panel.hidden = isOpen;
+    if (!isOpen) renderSyncHistory();
+  });
+  document.getElementById("syncHistoryClose").addEventListener("click", () => {
+    document.getElementById("syncHistoryPanel").hidden = true;
+  });
+  // Close panel when clicking outside
+  document.addEventListener("click", (e) => {
+    const panel = document.getElementById("syncHistoryPanel");
+    const btn = document.getElementById("syncHistoryBtn");
+    if (!panel.hidden && !panel.contains(e.target) && !btn.contains(e.target)) {
+      panel.hidden = true;
+    }
   });
 
   // Backup (download JSON)
@@ -2216,6 +2513,36 @@ function init() {
   });
 
   render();
+}
+
+// === Sync History Rendering ===
+function renderSyncHistory() {
+  const list = document.getElementById("syncHistoryList");
+  if (!list) return;
+  const history = typeof loadSyncHistory === "function" ? loadSyncHistory() : [];
+  if (history.length === 0) {
+    list.innerHTML = "";
+    return;
+  }
+  const iconMap = {
+    pull:  { icon: "\u2B07", cls: "pull" },
+    push:  { icon: "\u2B06", cls: "push" },
+    auto:  { icon: "\u26A1", cls: "auto" },
+    error: { icon: "\u26A0", cls: "error" },
+    info:  { icon: "\u2139", cls: "info" },
+  };
+  list.innerHTML = history.map(entry => {
+    const { icon, cls } = iconMap[entry.type] || iconMap.info;
+    const time = typeof formatSyncTime === "function" ? formatSyncTime(entry.time) : "";
+    const deviceShort = (entry.deviceId || "").slice(-6);
+    return `<li class="sync-history-item">
+      <span class="sync-history-icon ${cls}">${icon}</span>
+      <div class="sync-history-body">
+        <div class="sync-history-msg">${entry.msg}</div>
+        <div class="sync-history-time">${time}<span class="sync-history-device"> · ${deviceShort}</span></div>
+      </div>
+    </li>`;
+  }).join("");
 }
 
 function esc(str) {
@@ -2256,5 +2583,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   init();
   initInbox();
   initHamburger();
+  await initSyncStorage();
+  listenForSyncChanges();
   if (typeof initFirebaseSync === "function") initFirebaseSync();
 });

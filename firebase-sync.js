@@ -46,6 +46,8 @@ function fixArrays(data) {
 
 let _db = null;
 let _syncEnabled = false;
+let _lastPulledAt = 0;   // Timestamp of the last data we received FROM remote
+let _lastPushedAt = 0;   // Timestamp of the last data we pushed TO remote
 
 function initFirebaseSync() {
   try {
@@ -58,14 +60,33 @@ function initFirebaseSync() {
       console.log("Initial sync completed");
     });
 
-    // Hourly auto-sync
-    setInterval(() => {
-      forceSync().then(() => {
-        console.log("Hourly sync completed");
-      });
-    }, 60 * 60 * 1000);
+    // Listen for real-time changes from other devices
+    _db.ref("taskflow/data").on("value", (snapshot) => {
+      const remote = snapshot.val();
+      if (!remote || !remote.projects) return;
+      const remoteTime = remote._syncUpdatedAt || 0;
+      // Ignore our own writes (matched by device ID + timestamp we just pushed)
+      if (remote._deviceId === DEVICE_ID && remoteTime <= _lastPushedAt) return;
+      // Only apply if remote is newer than what we last pulled
+      if (remoteTime > _lastPulledAt) {
+        _lastPulledAt = remoteTime;
+        state = fixArrays(remote);
+        if (!state.inbox) state.inbox = [];
+        if (typeof ensureSubtasks === "function") ensureSubtasks(state);
+        delete state._deviceId;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        try {
+          render();
+          renderInbox();
+        } catch (e) {
+          console.error("Render after realtime sync error:", e);
+        }
+        showSyncNotice("別のデバイスから自動反映しました", "auto");
+        console.log("Realtime sync applied from remote");
+      }
+    });
 
-    showSyncNotice("同期: 接続済み");
+    showSyncNotice("同期: 接続済み", "info");
     console.log("Firebase sync initialized, device:", DEVICE_ID);
   } catch (e) {
     console.warn("Firebase init failed:", e.message);
@@ -81,6 +102,8 @@ function saveToFirebase() {
   data._deviceId = DEVICE_ID;
   data._syncUpdatedAt = Date.now();
   state._syncUpdatedAt = data._syncUpdatedAt;
+  // Track what we pushed so the realtime listener ignores our own write
+  _lastPushedAt = data._syncUpdatedAt;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
   _db.ref("taskflow/data").set(data).then(() => {
@@ -90,10 +113,10 @@ function saveToFirebase() {
   });
 }
 
-// Force sync: pull remote, merge (newer wins), then push
+// Force sync: always pull remote, then decide whether to apply or push
 async function forceSync() {
   if (!_syncEnabled || !_db) {
-    showSyncNotice("同期未接続");
+    showSyncNotice("同期未接続", "error");
     return;
   }
 
@@ -103,15 +126,17 @@ async function forceSync() {
   if (!remote || !remote.projects) {
     // No remote data - push local
     saveToFirebase();
-    showSyncNotice("データをアップロードしました");
+    showSyncNotice("データをアップロードしました", "push");
     return;
   }
 
-  const localTime = state._syncUpdatedAt || 0;
   const remoteTime = remote._syncUpdatedAt || 0;
+  const localModified = state._localModifiedAt || 0;
 
-  if (remoteTime > localTime) {
-    // Remote is newer - apply it
+  // If remote was written by a different device and is newer than our last pull,
+  // OR remote is newer than our local modifications → apply remote
+  if (remoteTime > _lastPulledAt && (remote._deviceId !== DEVICE_ID || remoteTime > localModified)) {
+    _lastPulledAt = remoteTime;
     state = fixArrays(remote);
     if (!state.inbox) state.inbox = [];
     if (typeof ensureSubtasks === "function") ensureSubtasks(state);
@@ -123,19 +148,63 @@ async function forceSync() {
     } catch (e) {
       console.error("Render after sync error:", e);
     }
-    showSyncNotice("最新データを反映しました");
-  } else {
-    // Local is newer or same - push to remote
+    showSyncNotice("最新データを反映しました", "pull");
+  } else if (localModified > _lastPushedAt) {
+    // We have local changes that haven't been pushed yet
     saveToFirebase();
-    showSyncNotice("データをアップロードしました");
+    showSyncNotice("データをアップロードしました", "push");
+  } else {
+    showSyncNotice("すでに最新です", "info");
   }
 }
 
-function showSyncNotice(msg) {
+function showSyncNotice(msg, type) {
   const el = document.getElementById("syncStatusBar");
   if (el) {
     el.textContent = msg;
     el.hidden = false;
     setTimeout(() => { el.hidden = true; }, 4000);
   }
+  addSyncHistory(msg, type);
+}
+
+// === Sync History ===
+const SYNC_HISTORY_KEY = "taskflow_sync_history";
+const SYNC_HISTORY_MAX = 50;
+
+function loadSyncHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(SYNC_HISTORY_KEY) || "[]");
+  } catch { return []; }
+}
+
+function saveSyncHistory(history) {
+  localStorage.setItem(SYNC_HISTORY_KEY, JSON.stringify(history));
+}
+
+function addSyncHistory(msg, type) {
+  if (!msg) return;
+  const history = loadSyncHistory();
+  history.unshift({
+    msg,
+    type: type || "info",
+    deviceId: DEVICE_ID,
+    time: Date.now(),
+  });
+  // Keep only the latest entries
+  if (history.length > SYNC_HISTORY_MAX) history.length = SYNC_HISTORY_MAX;
+  saveSyncHistory(history);
+  if (typeof renderSyncHistory === "function") renderSyncHistory();
+}
+
+function formatSyncTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  if (d.toDateString() === now.toDateString()) return `今日 ${time}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `昨日 ${time}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
 }

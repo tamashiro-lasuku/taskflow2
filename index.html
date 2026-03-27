@@ -108,9 +108,21 @@
             バックアップ
           </button>
           <button class="btn-calendar" id="syncCalendarBtn" hidden>カレンダーに同期</button>
+          <button class="btn-secondary btn-sm" id="syncHistoryBtn" title="反映履歴">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            履歴
+          </button>
           <div class="sync-status" id="syncStatus"></div>
         </div>
         <span class="sync-device-status" id="syncStatusBar" hidden></span>
+        <!-- Sync History Panel -->
+        <div id="syncHistoryPanel" class="sync-history-panel" hidden>
+          <div class="sync-history-header">
+            <span class="sync-history-title">反映履歴</span>
+            <button class="sync-history-close" id="syncHistoryClose">&times;</button>
+          </div>
+          <ul class="sync-history-list" id="syncHistoryList"></ul>
+        </div>
       </div>
 
       <!-- Kanban View -->
