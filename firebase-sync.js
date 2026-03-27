@@ -46,6 +46,7 @@ function fixArrays(data) {
 
 let _db = null;
 let _syncEnabled = false;
+let _initialSyncDone = false; // Block saveToFirebase until first sync completes
 let _lastPulledAt = 0;   // Timestamp of the last data we received FROM remote
 let _lastPushedAt = 0;   // Timestamp of the last data we pushed TO remote
 
@@ -56,11 +57,13 @@ function initFirebaseSync() {
     _db = firebase.database();
     _syncEnabled = true;
 
-    // Pull latest on init
+    // Pull latest on init (blocks saveToFirebase until done)
     forceSync().then(() => {
+      _initialSyncDone = true;
       console.log("Initial sync completed");
       setSyncIndicator("ok", "同期OK");
     }).catch((e) => {
+      _initialSyncDone = true; // Allow saves even if first sync fails
       console.error("Initial sync failed:", e);
       setSyncIndicator("error", "同期エラー: " + e.message);
     });
@@ -136,6 +139,8 @@ function setSyncIndicator(status, text) {
 // Upload local data to Firebase
 function saveToFirebase() {
   if (!_syncEnabled || !_db) return;
+  // Don't push until initial sync has pulled remote data
+  if (!_initialSyncDone) return;
 
   const data = JSON.parse(JSON.stringify(state));
   data._deviceId = DEVICE_ID;
