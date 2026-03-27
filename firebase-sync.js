@@ -61,7 +61,7 @@ function initFirebaseSync() {
     forceSync().then(() => {
       _initialSyncDone = true;
       console.log("Initial sync completed");
-      setSyncIndicator("ok", "同期OK");
+      // Debug info is already shown by forceSync, don't overwrite
     }).catch((e) => {
       _initialSyncDone = true; // Allow saves even if first sync fails
       console.error("Initial sync failed:", e);
@@ -91,16 +91,14 @@ function initFirebaseSync() {
           console.error("Render after realtime sync error:", e);
         }
         showSyncNotice("別のデバイスから自動反映しました", "auto");
-        setSyncIndicator("ok", "同期OK");
+        setSyncIndicator("ok", "自動反映 remote:" + ((state.projects||[]).length) + "件");
         console.log("Realtime sync applied from remote");
       }
     });
 
-    // Monitor connection state
+    // Monitor connection state (don't overwrite debug info)
     firebase.database().ref(".info/connected").on("value", (snap) => {
-      if (snap.val() === true) {
-        setSyncIndicator("ok", "同期OK");
-      } else {
+      if (snap.val() !== true) {
         setSyncIndicator("error", "Firebase未接続");
       }
     });
