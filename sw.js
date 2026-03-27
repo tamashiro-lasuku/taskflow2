@@ -1,9 +1,11 @@
-const CACHE_NAME = "taskflow-v3.1";
+const CACHE_NAME = "taskflow-v3.2";
 const ASSETS = [
   "./index.html",
   "./app.js",
   "./calendar.js",
   "./firebase-sync.js",
+  "./firebase-app-compat.js",
+  "./firebase-database-compat.js",
   "./styles.css",
   "./icons/icon128.png",
 ];
